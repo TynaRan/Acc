@@ -315,3 +315,140 @@ end
 RunService.Heartbeat:Connect(function()
     shootAtClosestEnemy()
 end)
+local CameraSection = Window:CreateTab("Camera"):CreateSector("Third Person --Test", "left")
+
+-- Third person settings
+settings.thirdPerson = {
+    enabled = false,
+    distance = 10,
+    height = 2,
+    smoothness = 0.2,
+    fov = 70
+}
+
+-- UI Elements for third person
+CameraSection:AddToggle("Enabled", settings.thirdPerson.enabled, function(state)
+    settings.thirdPerson.enabled = state
+    if not state then
+        -- Reset to first person when disabled
+        Camera.CameraType = Enum.CameraType.Custom
+        Camera.FieldOfView = 70
+    end
+end)
+
+CameraSection:AddSlider("Distance", 1, settings.thirdPerson.distance, 20, 1, function(value)
+    settings.thirdPerson.distance = value
+end)
+
+CameraSection:AddSlider("Height", 1, settings.thirdPerson.height, 10, 1, function(value)
+    settings.thirdPerson.height = value
+end)
+
+CameraSection:AddSlider("Smoothness", 1, settings.thirdPerson.smoothness*10, 10, 1, function(value)
+    settings.thirdPerson.smoothness = value/10
+end)
+
+CameraSection:AddSlider("FOV", 30, settings.thirdPerson.fov, 120, 1, function(value)
+    settings.thirdPerson.fov = value
+    Camera.FieldOfView = value
+end)
+
+-- Third person camera parts
+local cameraRig = Instance.new("Model")
+cameraRig.Name = "ThirdPersonCameraRig"
+local cameraPivot = Instance.new("Part")
+cameraPivot.Name = "CameraPivot"
+cameraPivot.Anchored = true
+cameraPivot.CanCollide = false
+cameraPivot.Transparency = 1
+cameraPivot.Size = Vector3.new(1,1,1)
+cameraPivot.Parent = cameraRig
+
+local cameraArm = Instance.new("Part")
+cameraArm.Name = "CameraArm"
+cameraArm.Anchored = true
+cameraArm.CanCollide = false
+cameraArm.Transparency = 1
+cameraArm.Size = Vector3.new(1,1,1)
+cameraArm.Parent = cameraRig
+
+-- Weld the parts together
+local weld = Instance.new("WeldConstraint")
+weld.Part0 = cameraPivot
+weld.Part1 = cameraArm
+weld.Parent = cameraArm
+
+-- Initialize third person
+local function initializeThirdPerson()
+    if not Character or not RootPart then return end
+    
+    cameraRig.Parent = workspace
+    cameraPivot.CFrame = RootPart.CFrame * CFrame.new(0, settings.thirdPerson.height, 0)
+    cameraArm.CFrame = cameraPivot.CFrame * CFrame.new(0, 0, settings.thirdPerson.distance)
+    
+    if settings.thirdPerson.enabled then
+        Camera.CameraSubject = cameraArm
+        Camera.CameraType = Enum.CameraType.Scriptable
+        Camera.FieldOfView = settings.thirdPerson.fov
+    end
+end
+
+-- Update third person camera
+local function updateThirdPerson(deltaTime)
+    if not settings.thirdPerson.enabled or not Character or not RootPart then return end
+    
+    -- Calculate desired position
+    local desiredPivotCFrame = RootPart.CFrame * CFrame.new(0, settings.thirdPerson.height, 0)
+    local desiredArmCFrame = desiredPivotCFrame * CFrame.new(0, 0, settings.thirdPerson.distance)
+    
+    -- Smooth movement
+    local smoothnessFactor = math.clamp(deltaTime / settings.thirdPerson.smoothness, 0, 1)
+    cameraPivot.CFrame = cameraPivot.CFrame:Lerp(desiredPivotCFrame, smoothnessFactor)
+    
+    -- Calculate camera position avoiding walls
+    local cameraDirection = (desiredArmCFrame.Position - desiredPivotCFrame.Position).Unit
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {Character, cameraRig}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    
+    local raycastResult = workspace:Raycast(
+        desiredPivotCFrame.Position,
+        cameraDirection * settings.thirdPerson.distance,
+        raycastParams
+    )
+    
+    if raycastResult then
+        -- If hit something, adjust camera distance
+        local hitDistance = (raycastResult.Position - desiredPivotCFrame.Position).Magnitude
+        desiredArmCFrame = desiredPivotCFrame * CFrame.new(0, 0, math.max(1, hitDistance - 1))
+    end
+    
+    cameraArm.CFrame = cameraArm.CFrame:Lerp(desiredArmCFrame, smoothnessFactor)
+    
+    -- Point camera at character head
+    local head = Character:FindFirstChild("Head")
+    if head then
+        Camera.CFrame = CFrame.lookAt(cameraArm.Position, head.Position)
+    else
+        Camera.CFrame = CFrame.lookAt(cameraArm.Position, RootPart.Position + Vector3.new(0, 2, 0))
+    end
+end
+
+-- Character added connection for third person
+LocalPlayer.CharacterAdded:Connect(function()
+    initializeCharacter()
+    initializeThirdPerson()
+end)
+
+-- Initialize on start
+initializeThirdPerson()
+
+-- Run third person update
+local lastUpdate = os.clock()
+RunService.RenderStepped:Connect(function()
+    local now = os.clock()
+    local deltaTime = now - lastUpdate
+    lastUpdate = now
+    
+    updateThirdPerson(deltaTime)
+end)
