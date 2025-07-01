@@ -29,8 +29,8 @@ library.theme = {
     backgroundcolor = Color3.fromRGB(20, 20, 20),
     tabstextcolor = Color3.fromRGB(240, 240, 240),
     bordercolor = Color3.fromRGB(60, 60, 60),
-    accentcolor = Color3.fromRGB(28, 56, 139),
-    accentcolor2 = Color3.fromRGB(16, 31, 78),
+    accentcolor = Color3.fromRGB(255, 0, 0),  -- Initial color (red)
+    accentcolor2 = Color3.fromRGB(0, 255, 0), -- Initial secondary color (green)
     outlinecolor = Color3.fromRGB(60, 60, 60),
     outlinecolor2 = Color3.fromRGB(0, 0, 0),
     sectorcolor = Color3.fromRGB(30, 30, 30),
@@ -43,6 +43,27 @@ library.theme = {
     itemscolor = Color3.fromRGB(200, 200, 200),
     itemscolor2 = Color3.fromRGB(210, 210, 210)
 }
+
+-- Color cycling function
+local function cycleColors()
+    local time = 0
+    local speed = 1  -- Adjust speed as needed (higher = faster)
+    
+    while true do
+        time = time + (task.wait() * speed)
+        
+        -- Hue values range from 0 to 1
+        local hue1 = (time * 0.2) % 1  -- Primary color cycles slower
+        local hue2 = (time * 0.3) % 1  -- Secondary color cycles faster
+        
+        -- Convert HSV to RGB (Hue, Saturation, Value)
+        library.theme.accentcolor = Color3.fromHSV(hue1, 0.8, 1)
+        library.theme.accentcolor2 = Color3.fromHSV(hue2, 0.8, 1)
+    end
+end
+
+-- Start the color cycling in a coroutine
+coroutine.wrap(cycleColors)()
 
 if library.theme.cursor and Drawing then
     local success = pcall(function() 
